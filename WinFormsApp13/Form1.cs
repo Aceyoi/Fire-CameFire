@@ -54,10 +54,8 @@ namespace WinFormsApp13
             logs.Add(new Log
             {
                 X = 0,
-                Y = 0,  
                 Z = 0,
                 Size = new Size3D(120, 20, 20),
-                Rotation = 0,
                 Color = Color.FromArgb(255, 101, 67, 33)
             });
 
@@ -65,10 +63,9 @@ namespace WinFormsApp13
             logs.Add(new Log
             {
                 X = 0,
-                Y = 0,
                 Z = 0,
-                Size = new Size3D(120, 20, 20),
                 Rotation = 90,
+                Size = new Size3D(120, 20, 20),
                 Color = Color.FromArgb(255, 92, 64, 51)
             });
         }
