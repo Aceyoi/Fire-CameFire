@@ -21,9 +21,15 @@ namespace WinFormsApp13
         private bool fireAnimationEnabled = false;
         private float cameraAngle = 0;
         private float cameraDistance = 500;
+        private float cameraAngleY = 0; // Угол вокруг оси Y (горизонтальное вращение)
+        private float cameraAngleX = 0; // Угол вокруг оси X (вертикальное вращение)
         private Point3D cameraPosition = new Point3D(0, 150, 0);
         private List<FloorTile> floorTiles = new List<FloorTile>();
         private float gravity = 0.02f;
+        private bool isDragging = false;
+        private const float MaxCameraAngleX = MathHelper.PiOver2 * 0.1f; // Максимальный угол наклона вниз
+        private const float MinCameraAngleX = -MathHelper.PiOver2 * 1f; // Минимальный угол наклона вверх
+        private Point lastMousePosition;
 
         public Form1()
         {
@@ -40,14 +46,56 @@ namespace WinFormsApp13
             CreateFloorGrid(400, 40);
 
             // Создаем бревна для костра
-            CreateCampfireLogs();
+            //CreateCampfireLogs();
 
             // Настройка таймера
             timer = new Timer { Interval = 16 }; // ~60 FPS
             timer.Tick += (s, e) => UpdateFire();
             timer.Start();
+
+            pictureBox1.MouseDown += PictureBox1_MouseDown;
+            pictureBox1.MouseMove += PictureBox1_MouseMove;
+            pictureBox1.MouseUp += PictureBox1_MouseUp;
+            pictureBox1.MouseWheel += PictureBox1_MouseWheel;
         }
 
+        private void PictureBox1_MouseDown(object sender, MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Left)
+            {
+                isDragging = true;
+                lastMousePosition = e.Location;
+            }
+        }
+
+        private void PictureBox1_MouseMove(object sender, MouseEventArgs e)
+        {
+            if (isDragging)
+            {
+                int deltaX = e.X - lastMousePosition.X;
+                int deltaY = e.Y - lastMousePosition.Y;
+
+                cameraAngleY += deltaX * 0.01f;
+                cameraAngleX = Math.Max(MinCameraAngleX,
+                                Math.Min(MaxCameraAngleX,
+                                cameraAngleX - deltaY * 0.01f));
+
+                lastMousePosition = e.Location;
+            }
+        }
+
+        private void PictureBox1_MouseUp(object sender, MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Left)
+            {
+                isDragging = false;
+            }
+        }
+
+        private void PictureBox1_MouseWheel(object sender, MouseEventArgs e)
+        {
+            cameraDistance = Math.Max(100, Math.Min(1000, cameraDistance - e.Delta / 2));
+        }
         private void CreateCampfireLogs()
         {
             // Первое бревно (горизонтальное)
@@ -267,19 +315,22 @@ namespace WinFormsApp13
 
         private (float screenX, float screenY, float screenSize) Project3DTo2D(float x, float y, float z, float size)
         {
-            // Вращение вокруг оси Y
-            float rotatedX = (float)(x * Math.Cos(cameraAngle) - z * Math.Sin(cameraAngle));
-            float rotatedZ = (float)(x * Math.Sin(cameraAngle) + z * Math.Cos(cameraAngle));
+            // Вращение вокруг оси Y (горизонтальное)
+            float rotatedX = (float)(x * Math.Cos(cameraAngleY) - z * Math.Sin(cameraAngleY));
+            float rotatedZ = (float)(x * Math.Sin(cameraAngleY) + z * Math.Cos(cameraAngleY));
+
+            // Вращение вокруг оси X (вертикальное)
+            float finalY = (float)(y * Math.Cos(cameraAngleX) - rotatedZ * Math.Sin(cameraAngleX));
+            float finalZ = (float)(y * Math.Sin(cameraAngleX) + rotatedZ * Math.Cos(cameraAngleX));
 
             // Перспективная проекция
-            float scale = cameraDistance / (cameraDistance + rotatedZ);
+            float scale = cameraDistance / (cameraDistance + finalZ);
             float screenX = width / 2 + (rotatedX - cameraPosition.X) * scale;
-            float screenY = height / 2 - (y - cameraPosition.Y) * scale;
+            float screenY = height / 2 - (finalY - cameraPosition.Y) * scale;
             float screenSize = size * scale;
 
             return (screenX, screenY, screenSize);
         }
-
         private float GetDepth(float x, float y, float z)
         {
             return (float)(x * Math.Sin(cameraAngle) + z * Math.Cos(cameraAngle));
@@ -300,9 +351,6 @@ namespace WinFormsApp13
             pictureBox1.Image = fireBitmap;
             timer.Start();
         }
-        private void button4_Click(object sender, EventArgs e) => cameraAngle -= 0.2f;
-        private void button5_Click(object sender, EventArgs e) => cameraAngle += 0.2f;
-
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
             base.OnFormClosing(e);
@@ -311,6 +359,10 @@ namespace WinFormsApp13
         }
     }
 
+    static class MathHelper
+    {
+        public const float PiOver2 = (float)(Math.PI / 2);
+    }
     class FloorTile
     {
         public int X { get; set; }
